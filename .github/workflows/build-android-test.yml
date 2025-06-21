@@ -1,0 +1,43 @@
+name: Build Android Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        type: string
+        default: 'main'
+
+jobs:
+  set_release_type:
+    runs-on: ubuntu-latest
+    outputs:
+      RELEASE_TYPE: ${{ steps.set_release_type.outputs.RELEASE_TYPE }}
+    steps:
+      - id: set_release_type
+        run: |
+          echo "Setting release type to dry-run"
+          echo "RELEASE_TYPE=dry-run" >> $GITHUB_OUTPUT
+
+  build_android:
+    runs-on: 8-core-ubuntu
+    needs: [set_release_type]
+    container:
+      image: reactnativecommunity/react-native-android:latest
+      env:
+        TERM: "dumb"
+        GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+        ORG_GRADLE_PROJECT_SIGNING_PWD: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_PWD }}
+        ORG_GRADLE_PROJECT_SIGNING_KEY: ${{ secrets.ORG_GRADLE_PROJECT_SIGNING_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Build Android
+        uses: ./.github/actions/build-android
+        with:
+          release-type: ${{ needs.set_release_type.outputs.RELEASE_TYPE }}
+          run-e2e-tests: false
+          gradle-cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
